@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+.DS_Store
+*.log
+*.sqlite
+*.db
+backend/check.js
+backend/check_lookup.js

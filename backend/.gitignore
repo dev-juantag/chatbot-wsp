@@ -1,0 +1,10 @@
+node_modules
+# Keep environment variables out of version control
+.env
+/generated/prisma
+
+# managed
+**.data.json
+**.node-persist**
+**_IGNORE_**
+# end managed

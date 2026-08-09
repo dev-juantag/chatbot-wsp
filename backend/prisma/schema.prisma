@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String           @db.VarChar(255)
+  createdAt       DateTime?        @default(now()) @map("created_at") @db.Timestamptz(6)
+  isActive        Boolean          @default(true) @map("is_active")
+  agentConfig     AgentConfig?
+  agentFaqs       AgentFaq[]
+  agentServices   AgentService[]
+  appointments    Appointment[]
+  contacts        Contact[]
+  messages        Message[]
+  users           User[]
+  whatsappSession WhatsappSession?
+
+  @@map("tenants")
+}
+
+model User {
+  id        String    @id @db.Uuid
+  tenantId  String?   @map("tenant_id") @db.Uuid
+  role      String?   @default("agent") @db.VarChar(50)
+  email     String    @db.VarChar(255)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  isActive  Boolean   @default(true) @map("is_active")
+  tenant    Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("users")
+}
+
+model Contact {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String?       @map("tenant_id") @db.Uuid
+  phone          String        @db.VarChar(50)
+  name           String?       @db.VarChar(255)
+  pipelineStage  String?       @default("nuevo") @map("pipeline_stage") @db.VarChar(50)
+  createdAt      DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  botPausedUntil DateTime?     @map("bot_paused_until") @db.Timestamptz(6)
+  appointments   Appointment[]
+  tenant         Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages       Message[]
+
+  @@unique([tenantId, phone])
+  @@map("contacts")
+}
+
+model Message {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String?   @map("tenant_id") @db.Uuid
+  contactId  String?   @map("contact_id") @db.Uuid
+  direction  String    @db.VarChar(20)
+  content    String?
+  senderType String    @map("sender_type") @db.VarChar(20)
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  contact    Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenant     Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Appointment {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String?   @map("tenant_id") @db.Uuid
+  contactId       String?   @map("contact_id") @db.Uuid
+  serviceName     String    @map("service_name") @db.VarChar(255)
+  appointmentDate DateTime  @map("appointment_date") @db.Date
+  appointmentTime DateTime  @map("appointment_time") @db.Time(6)
+  status          String?   @default("agendada") @db.VarChar(50)
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  reminderSent    Boolean?  @default(false) @map("reminder_sent")
+  contact         Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("appointments")
+}
+
+model AgentConfig {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String?   @unique @map("tenant_id") @db.Uuid
+  systemPrompt     String?   @map("system_prompt")
+  isActive         Boolean?  @default(true) @map("is_active")
+  handoffRequested Boolean?  @default(false) @map("handoff_requested")
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  botName          String?   @default("Tagu") @map("bot_name") @db.VarChar(100)
+  businessName     String?   @map("business_name") @db.VarChar(255)
+  workingHours     String?   @map("working_hours")
+  servicesInfo     String?   @map("services_info")
+  faqs             String?
+  agendaSettings   Json?     @map("agenda_settings")
+  identityConfig   Json?     @map("identity_config")
+  leadScoringRules Json?     @map("lead_scoring_rules")
+  objectives       Json?
+  toolsEnabled     Json?     @map("tools_enabled")
+  additionalInfo   String?   @map("additional_info")
+  geminiApiKey     String?   @map("gemini_api_key")
+  menuPdfUrl       String?   @map("menu_pdf_url")
+  menuPdfName      String?   @map("menu_pdf_name")
+  menuPdfBase64    String?   @map("menu_pdf_base64")
+  tenant           Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("agent_configs")
+}
+
+model AgentService {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String?   @map("tenant_id") @db.Uuid
+  name        String    @db.VarChar(255)
+  description String?
+  price       String?   @db.VarChar(100)
+  duration    String?   @db.VarChar(50)
+  isActive    Boolean?  @default(true) @map("is_active")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("agent_services")
+}
+
+model AgentFaq {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String?   @map("tenant_id") @db.Uuid
+  question  String
+  answer    String
+  category  String?   @db.VarChar(100)
+  isActive  Boolean?  @default(true) @map("is_active")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant    Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("agent_faqs")
+}
+
+model WhatsappSession {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String?   @unique @map("tenant_id") @db.Uuid
+  sessionData String?   @map("session_data")
+  status      String?   @default("DISCONNECTED") @db.VarChar(50)
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_sessions")
+}

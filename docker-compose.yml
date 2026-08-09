@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  openwa:
+    build:
+      context: ./OpenWA
+      dockerfile: Dockerfile
+    container_name: openwa-api
+    restart: unless-stopped
+    ports:
+      - "2785:2785"
+    environment:
+      - NODE_ENV=production
+      - PORT=2785
+      - WEBHOOK_URL=http://backend:3001/webhook/openwa
+      - AUTO_START_SESSIONS=true
+      - DATABASE_TYPE=sqlite
+      - DATABASE_SYNCHRONIZE=true
+      - WEBHOOK_TIMEOUT=10000
+      - WEBHOOK_SSRF_PROTECT=false
+    volumes:
+      - openwa_data:/app/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crm-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - OPENWA_API_URL=http://openwa:2785/api
+      - WEBHOOK_URL=http://backend:3001/webhook/openwa
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    depends_on:
+      - openwa
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: crm-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    depends_on:
+      - backend
+
+volumes:
+  openwa_data:
