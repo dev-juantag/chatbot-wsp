@@ -1,61 +1,121 @@
-version: '3.8'
+# ================================================================
+# Docker Compose - Chatbot CRM WhatsApp
+# ================================================================
+# Uso local:  docker-compose up --build
+# Produccion: Coolify lo gestiona automaticamente desde GitHub
+# ================================================================
 
 services:
+
+  # ── Base de datos (solo para desarrollo local sin Supabase) ──
+  # Si usas Supabase en la nube, comenta este servicio y ajusta DATABASE_URL
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: chatbot
+  #     POSTGRES_PASSWORD: chatbot_secret
+  #     POSTGRES_DB: chatbot_db
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U chatbot"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # ── Motor de WhatsApp (OpenWA) ──
   openwa:
-    build:
-      context: ./OpenWA
-      dockerfile: Dockerfile
-    container_name: openwa-api
+    image: openwa/wa-automate:latest
+    container_name: chatbot_openwa
     restart: unless-stopped
     ports:
       - "2785:2785"
     environment:
-      - NODE_ENV=production
-      - PORT=2785
-      - WEBHOOK_URL=http://backend:3001/webhook/openwa
-      - AUTO_START_SESSIONS=true
-      - DATABASE_TYPE=sqlite
-      - DATABASE_SYNCHRONIZE=true
-      - WEBHOOK_TIMEOUT=10000
-      - WEBHOOK_SSRF_PROTECT=false
+      OWA_API_KEY: ${OPENWA_API_KEY}
+      # Descomenta para configurar opciones adicionales:
+      # OWA_HEADLESS: "true"
+      # OWA_DISABLE_SPINS: "true"
     volumes:
-      - openwa_data:/app/data
+      # CRITICO: Persistencia de sesiones de WhatsApp
+      # Sin esto, cada reinicio del contenedor requiere re-escanear el QR en todos los negocios
+      - openwa_sessions:/usr/src/app/.data/session
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2785/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
+  # ── Backend Express + Prisma ──
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: crm-backend
+    container_name: chatbot_backend
     restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
-      - PORT=3001
-      - OPENWA_API_URL=http://openwa:2785/api
-      - WEBHOOK_URL=http://backend:3001/webhook/openwa
-      - DATABASE_URL=${DATABASE_URL}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      NODE_ENV: production
+      PORT: 3001
+      # Base de datos (Supabase o PostgreSQL propio)
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
+      # Supabase Auth
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      # Google Gemini IA
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      # OpenWA - dentro de Docker se accede por nombre de servicio
+      OPENWA_API_URL: http://openwa:2785/api
+      OPENWA_API_KEY: ${OPENWA_API_KEY}
+      # Webhook: el backend recibe mensajes de OpenWA
+      # En Docker, OpenWA accede al backend por nombre de servicio
+      WEBHOOK_URL: http://backend:3001/webhook/openwa
+      # Seguridad
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
-      - openwa
+      openwa:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
+  # ── Frontend Next.js ──
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: crm-frontend
+      args:
+        # Variables publicas de Supabase (necesarias en BUILD TIME)
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    container_name: chatbot_frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      NODE_ENV: production
+      # URL interna del backend dentro de Docker (por nombre de servicio)
+      BACKEND_URL: http://backend:3001
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
+# ── Volumenes persistentes ──
 volumes:
-  openwa_data:
+  openwa_sessions:
+    driver: local
+  # postgres_data:       # Descomentar si usas PostgreSQL local
+  #   driver: local
+
+# ── Red interna compartida ──
+networks:
+  default:
+    name: chatbot_network

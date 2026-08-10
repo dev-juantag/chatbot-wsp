@@ -1,19 +1,55 @@
-FROM node:22-alpine AS builder
+# ─────────────────────────────────────────────
+# STAGE 1: Instalar dependencias
+# ─────────────────────────────────────────────
+FROM node:20-alpine AS deps
+
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm install
+RUN npm ci
+
+# ─────────────────────────────────────────────
+# STAGE 2: Build de produccion
+# ─────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
+
+# Variables de entorno necesarias en BUILD TIME (publicas de Next.js)
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+# Compilar Next.js en modo produccion
 RUN npm run build
 
-FROM node:22-alpine AS runner
+# ─────────────────────────────────────────────
+# STAGE 3: Imagen final minima (standalone)
+# ─────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
 WORKDIR /app
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
+
+# Crear usuario no-root por seguridad
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copiar solo lo necesario para ejecutar Next.js
 COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
 
 EXPOSE 3000
-CMD ["npm", "start"]
+
+ENV PORT=3000
+ENV NODE_ENV=production
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]

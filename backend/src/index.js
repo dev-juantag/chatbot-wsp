@@ -229,6 +229,11 @@ app.post('/api/whatsapp/status/sync', authMiddleware, async (req, res) => {
   }
 });
 
+// Endpoint de health check para Docker / Coolify
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Endpoint para consultar el estado y obtener el código QR único del negocio
 app.get('/api/whatsapp/status', authMiddleware, async (req, res) => {
   try {
