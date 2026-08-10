@@ -1,9 +1,36 @@
+# Dependencias
 node_modules/
+
+# Variables de entorno (NUNCA subir al repositorio)
 .env
 .env.*
+.env.local
+.env.production
+
+# Archivos del sistema operativo
 .DS_Store
+Thumbs.db
+
+# Logs
 *.log
+npm-debug.log*
+
+# Bases de datos locales
 *.sqlite
 *.db
+
+# Build de Next.js
+frontend/.next/
+frontend/out/
+
+# Archivos temporales de desarrollo
 backend/check.js
 backend/check_lookup.js
+frontend/seed.js
+
+# Ejecutables y scripts de despliegue local
+cloudflared.exe
+iniciar_chatbot.bat
+
+# Generados por Prisma (se regeneran con npx prisma generate)
+backend/node_modules/.prisma/

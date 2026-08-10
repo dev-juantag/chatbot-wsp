@@ -14,6 +14,10 @@ export default function UnifiedSettingsForm() {
   // Empresa Fields
   const [businessName, setBusinessName] = useState("");
   const [workingHours, setWorkingHours] = useState("");
+  const [businessType, setBusinessType] = useState("citas"); // 'citas' | 'pedidos'
+
+  // Opciones Avanzadas
+  const [deleteMessagesOlderThan12Days, setDeleteMessagesOlderThan12Days] = useState(false);
 
   // Bot Fields
   const [botName, setBotName] = useState("Tagu");
@@ -54,7 +58,7 @@ export default function UnifiedSettingsForm() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch("http://localhost:3001/api/agent-config", {
+      const res = await fetch("/api/backend/agent-config", {
         headers: { "Authorization": `Bearer ${session.access_token}` }
       });
 
@@ -69,6 +73,9 @@ export default function UnifiedSettingsForm() {
         if (data.objectives) setObjectives(data.objectives);
         if (data.agendaSettings) setAgendaSettings(data.agendaSettings);
         if (data.additionalInfo) setAdditionalInfo(data.additionalInfo);
+        
+        if (data.businessType) setBusinessType(data.businessType);
+        if (data.deleteMessagesOlderThan12Days !== undefined) setDeleteMessagesOlderThan12Days(data.deleteMessagesOlderThan12Days);
         
         setHasCustomApiKey(!!data.hasCustomApiKey);
         setMaskedApiKey(data.maskedApiKey || null);
@@ -134,6 +141,8 @@ export default function UnifiedSettingsForm() {
       const payload = {
         businessName,
         workingHours,
+        businessType,
+        deleteMessagesOlderThan12Days,
         botName,
         isActive: finalIsActive,
         identityConfig,
@@ -146,7 +155,7 @@ export default function UnifiedSettingsForm() {
         menuPdfUrl
       };
 
-      const res = await fetch("http://localhost:3001/api/agent-config", {
+      const res = await fetch("/api/backend/agent-config", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -179,7 +188,7 @@ export default function UnifiedSettingsForm() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      await fetch("http://localhost:3001/api/agent-config", {
+      await fetch("/api/backend/agent-config", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -199,7 +208,7 @@ export default function UnifiedSettingsForm() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      await fetch("http://localhost:3001/api/agent-config", {
+      await fetch("/api/backend/agent-config", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -251,18 +260,34 @@ export default function UnifiedSettingsForm() {
             <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 uppercase tracking-wide">Información de la Empresa</h4>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre de la Empresa</label>
-              <input
-                type="text"
-                required
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="Ej. Barbería Techtag"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-              />
-            </div>
-            <div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nombre de tu Empresa / Negocio *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Odontología San Pedro"
+                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  value={businessName}
+                  onChange={e => setBusinessName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Tipo de Negocio *</label>
+                <select
+                  value={businessType}
+                  onChange={e => setBusinessType(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                >
+                  <option value="citas">Agendamiento / Citas / Consultas</option>
+                  <option value="pedidos">Restaurante / Toma de Pedidos</option>
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+                  Cambia los textos de la plataforma para ajustarse mejor a tu industria.
+                </p>
+              </div>
+
+              <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Horarios de Atención</label>
               <input
                 type="text"
@@ -272,9 +297,30 @@ export default function UnifiedSettingsForm() {
                 value={workingHours}
                 onChange={(e) => setWorkingHours(e.target.value)}
               />
+              </div>
+
+              <div className="md:col-span-2 pt-2">
+                <label className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
+                  <div className="flex items-center h-5 mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={deleteMessagesOlderThan12Days}
+                      onChange={(e) => setDeleteMessagesOlderThan12Days(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      Eliminación automática de chats (12 días)
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Para ahorrar espacio y organizar el CRM, los chats, mensajes y {businessType === 'pedidos' ? 'pedidos' : 'citas'} que cumplan 12 días de antigüedad serán eliminados permanentemente del sistema. Recomendado activarlo.
+                    </span>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
-        </div>
 
         {/* Sección 3: Personalidad del Bot */}
         <div className="space-y-4">

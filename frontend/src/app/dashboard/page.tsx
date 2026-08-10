@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { Search, Send, User, MessageSquare, Bot, BotOff, Paperclip, Clock } from "lucide-react";
+import { Search, Send, User, MessageSquare, Bot, BotOff, Paperclip, Clock, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { decryptMessagesAction } from "../actions";
@@ -28,7 +28,7 @@ export default function InboxPage() {
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [isBotPaused, setIsBotPaused] = useState(false);
+  const [botStatus, setBotStatus] = useState<'activo' | 'pausado' | 'apagado'>('activo');
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [wsConnected, setWsConnected] = useState<boolean | null>(null);
@@ -78,7 +78,7 @@ export default function InboxPage() {
         }
 
         // 2. Consultar backend Express para verificación en tiempo real
-        const res = await fetch('http://localhost:3001/api/whatsapp/status', {
+        const res = await fetch('/api/backend/whatsapp/status', {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
 
@@ -249,11 +249,24 @@ export default function InboxPage() {
   useEffect(() => {
     if (activeContact) {
       fetchMessages(activeContact.id);
-      const isPausedByStage = activeContact.pipeline_stage === 'handoff';
-      const isPausedByTimer = activeContact.bot_paused_until && new Date(activeContact.bot_paused_until) > new Date();
-      setIsBotPaused(!!(isPausedByStage || isPausedByTimer));
     }
   }, [activeContact?.id]);
+
+  useEffect(() => {
+      if (activeContact) {
+        const isPausedByStage = activeContact.pipeline_stage === 'handoff';
+        const isPausedByTimer = activeContact.bot_paused_until && new Date(activeContact.bot_paused_until) > new Date();
+        const isApagado = activeContact.bot_paused_until && new Date(activeContact.bot_paused_until).getFullYear() >= 2099;
+        
+        if (isApagado) {
+          setBotStatus('apagado');
+        } else if (isPausedByStage || isPausedByTimer) {
+          setBotStatus('pausado');
+        } else {
+          setBotStatus('activo');
+        }
+      }
+  }, [activeContact?.pipeline_stage, activeContact?.bot_paused_until]);
 
 
 
@@ -356,7 +369,7 @@ export default function InboxPage() {
     });
 
     try {
-      const res = await fetch("http://localhost:3001/api/messages/send", {
+      const res = await fetch("/api/backend/messages/send", {
         method: "POST",
         headers: await getAuthHeaders(),
         body: JSON.stringify({
@@ -386,21 +399,21 @@ export default function InboxPage() {
     }
   };
 
-  const handleToggleBot = async () => {
-    if (!activeContact) return;
-    const newState = !isBotPaused;
-    setIsBotPaused(newState);
+  const handleChangeBotStatus = async (newStatus: 'activo' | 'pausado' | 'apagado') => {
+    if (!activeContact || botStatus === newStatus) return;
+    const previousStatus = botStatus;
+    setBotStatus(newStatus);
     
     try {
-      await fetch(`http://localhost:3001/api/contacts/${activeContact.id}/toggle-bot`, {
+      await fetch(`/api/backend/contacts/${activeContact.id}/toggle-bot`, {
         method: "POST",
         headers: await getAuthHeaders(),
-        body: JSON.stringify({ paused: newState })
+        body: JSON.stringify({ status: newStatus })
       });
       fetchContacts();
     } catch (error) {
       console.error("Error al pausar/encender bot:", error);
-      setIsBotPaused(!newState);
+      setBotStatus(previousStatus);
     }
   };
 
@@ -415,7 +428,7 @@ export default function InboxPage() {
       reader.onload = async () => {
         const base64 = reader.result as string;
         try {
-          const res = await fetch("http://localhost:3001/api/messages/send-file", {
+          const res = await fetch("/api/backend/messages/send-file", {
             method: "POST",
             headers: await getAuthHeaders(),
             body: JSON.stringify({
@@ -515,7 +528,7 @@ export default function InboxPage() {
   return (
     <div className="flex h-full bg-white dark:bg-[#0b141a] overflow-hidden">
       {/* Sidebar de Chats */}
-      <div className="w-80 border-r border-gray-200 dark:border-[#222d34] flex flex-col bg-gray-50/50 dark:bg-[#111b21]">
+      <div className={`w-full md:w-80 border-r border-gray-200 dark:border-[#222d34] flex-col bg-gray-50/50 dark:bg-[#111b21] ${activeContact ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-3.5 border-b border-gray-200 dark:border-[#222d34] bg-[#f0f2f5] dark:bg-[#202c33]">
           {/* Header con título Chats + Reloj + Estado WhatsApp */}
           <div className="flex items-center justify-between mb-3 gap-2">
@@ -633,10 +646,16 @@ export default function InboxPage() {
 
       {/* Pane Principal del Chat Estilo WhatsApp */}
       {activeContact ? (
-        <div className="flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a]">
+        <div className={`flex-1 flex-col bg-[#efeae2] dark:bg-[#0b141a] ${activeContact ? 'flex' : 'hidden md:flex'}`}>
           {/* Header del Chat */}
           <div className="p-3 bg-[#f0f2f5] dark:bg-[#202c33] border-b border-gray-200 dark:border-[#222d34] flex items-center justify-between shadow-sm z-10">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
+              <button 
+                onClick={() => setActiveContact(null)}
+                className="md:hidden p-1.5 -ml-1 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <ArrowLeft size={20} />
+              </button>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shadow-sm shrink-0 ${getAvatarBg(activeContact.name)}`}>
                 {getInitials(activeContact.name)}
               </div>
@@ -648,27 +667,41 @@ export default function InboxPage() {
               </div>
             </div>
             
-            <button 
-              onClick={handleToggleBot}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                isBotPaused 
-                  ? 'bg-amber-100 text-amber-800 dark:bg-[#382b18] dark:text-[#ffc978] hover:bg-amber-200' 
-                  : 'bg-emerald-100 text-emerald-800 dark:bg-[#0c3b2e] dark:text-[#00a884] hover:bg-emerald-200'
-              }`}
-              title={isBotPaused ? "Reactivar la IA para este chat" : "Pausar la IA por 5 horas (Modo Manual)"}
-            >
-              {isBotPaused ? (
-                <>
-                  <BotOff size={15} />
-                  <span>Bot Pausado (5h)</span>
-                </>
-              ) : (
-                <>
-                  <Bot size={15} />
-                  <span>Bot Activo</span>
-                </>
-              )}
-            </button>
+            <div className="flex bg-gray-100 dark:bg-gray-800 rounded-md p-1">
+              <button 
+                onClick={() => handleChangeBotStatus('activo')}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  botStatus === 'activo' 
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-[#0c3b2e] dark:text-[#00a884] shadow-sm' 
+                    : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+                title="Bot Activo"
+              >
+                <Bot size={14} /> Activo
+              </button>
+              <button 
+                onClick={() => handleChangeBotStatus('pausado')}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  botStatus === 'pausado' 
+                    ? 'bg-amber-100 text-amber-800 dark:bg-[#382b18] dark:text-[#ffc978] shadow-sm' 
+                    : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+                title="Pausar por 5 horas"
+              >
+                <BotOff size={14} /> 5h
+              </button>
+              <button 
+                onClick={() => handleChangeBotStatus('apagado')}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  botStatus === 'apagado' 
+                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 shadow-sm' 
+                    : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+                title="Apagar Bot (Manual)"
+              >
+                <BotOff size={14} /> Apagado
+              </button>
+            </div>
           </div>
 
           {/* Fondo Wallpaper WhatsApp */}
@@ -762,7 +795,7 @@ export default function InboxPage() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 dark:bg-[#1a2329] text-center p-8 select-none">
+        <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-gray-50 dark:bg-[#1a2329] text-center p-8 select-none">
           <div className="w-20 h-20 bg-blue-50 dark:bg-[#202c33] rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 mb-6 shadow-sm">
             <MessageSquare size={36} />
           </div>

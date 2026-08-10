@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     }).catch(() => null);
 
     if (!res || !res.ok) {
-      res = await fetch("http://localhost:3001/api/superadmin/users", {
+      res = await fetch("https://api.chatbot.techtag.dev/api/superadmin/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

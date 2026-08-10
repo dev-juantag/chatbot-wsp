@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
   Building2, Power, UserPlus, Users, Trash2, 
-  ShieldAlert, Plus, Activity, RefreshCw, ToggleLeft, ToggleRight, Loader2, Search, Pencil, KeyRound
+  ShieldAlert, Plus, Activity, RefreshCw, ToggleLeft, ToggleRight, Loader2, Search, Pencil, KeyRound, Eye, EyeOff
 } from "lucide-react";
 
 import { createClient } from "@supabase/supabase-js";
@@ -57,6 +57,7 @@ export default function SuperadminPage() {
   const [modalTenantSearch, setModalTenantSearch] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false);
   const [newUserRole, setNewUserRole] = useState("admin");
   
   const [actionLoading, setActionLoading] = useState(false);
@@ -66,6 +67,7 @@ export default function SuperadminPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editUserRole, setEditUserRole] = useState("agent");
   const [editUserPassword, setEditUserPassword] = useState("");
+  const [showEditUserPassword, setShowEditUserPassword] = useState(false);
   const [editUserTenantId, setEditUserTenantId] = useState("");
 
   const fetchTenants = async () => {
@@ -207,7 +209,7 @@ export default function SuperadminPage() {
       await supabase.from('tenants').update({ is_active: newStatus }).eq('id', id);
 
       try {
-        await fetch(`http://localhost:3001/api/superadmin/tenants/${id}/toggle`, {
+        await fetch(`/api/backend/superadmin/tenants/${id}/toggle`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -236,7 +238,7 @@ export default function SuperadminPage() {
       await supabase.from('tenants').delete().eq('id', id);
 
       try {
-        await fetch(`http://localhost:3001/api/superadmin/tenants/${id}`, {
+        await fetch(`/api/backend/superadmin/tenants/${id}`, {
           method: "DELETE",
           headers: {
             "Authorization": `Bearer ${session.access_token}`
@@ -402,7 +404,7 @@ export default function SuperadminPage() {
   }
 
   return (
-    <div className="p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+    <div className="p-4 md:p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
@@ -722,15 +724,24 @@ export default function SuperadminPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Contraseña Inicial</label>
-                <input 
-                  type="password"
-                  required
-                  minLength={6}
-                  value={newUserPassword}
-                  onChange={(e) => setNewUserPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-2.5 text-sm text-gray-900 dark:text-white"
-                />
+                <div className="relative">
+                  <input 
+                    type={showNewUserPassword ? "text" : "password"}
+                    required
+                    minLength={6}
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-2.5 pr-10 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewUserPassword(!showNewUserPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    {showNewUserPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Rol del Usuario</label>
@@ -804,14 +815,23 @@ export default function SuperadminPage() {
                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
                   <span className="flex items-center gap-1.5"><KeyRound size={12} /> Nueva Contraseña (opcional)</span>
                 </label>
-                <input
-                  type="password"
-                  minLength={6}
-                  value={editUserPassword}
-                  onChange={(e) => setEditUserPassword(e.target.value)}
-                  placeholder="Dejar vacío para no cambiar la contraseña"
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-2.5 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
+                <div className="relative">
+                  <input
+                    type={showEditUserPassword ? "text" : "password"}
+                    minLength={6}
+                    value={editUserPassword}
+                    onChange={(e) => setEditUserPassword(e.target.value)}
+                    placeholder="Dejar vacío para no cambiar la contraseña"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-2.5 pr-10 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditUserPassword(!showEditUserPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    {showEditUserPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button

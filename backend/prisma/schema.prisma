@@ -82,28 +82,30 @@ model Appointment {
 }
 
 model AgentConfig {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId         String?   @unique @map("tenant_id") @db.Uuid
-  systemPrompt     String?   @map("system_prompt")
-  isActive         Boolean?  @default(true) @map("is_active")
-  handoffRequested Boolean?  @default(false) @map("handoff_requested")
-  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  botName          String?   @default("Tagu") @map("bot_name") @db.VarChar(100)
-  businessName     String?   @map("business_name") @db.VarChar(255)
-  workingHours     String?   @map("working_hours")
-  servicesInfo     String?   @map("services_info")
-  faqs             String?
-  agendaSettings   Json?     @map("agenda_settings")
-  identityConfig   Json?     @map("identity_config")
-  leadScoringRules Json?     @map("lead_scoring_rules")
-  objectives       Json?
-  toolsEnabled     Json?     @map("tools_enabled")
-  additionalInfo   String?   @map("additional_info")
-  geminiApiKey     String?   @map("gemini_api_key")
-  menuPdfUrl       String?   @map("menu_pdf_url")
-  menuPdfName      String?   @map("menu_pdf_name")
-  menuPdfBase64    String?   @map("menu_pdf_base64")
-  tenant           Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                      String?   @unique @map("tenant_id") @db.Uuid
+  systemPrompt                  String?   @map("system_prompt")
+  isActive                      Boolean?  @default(true) @map("is_active")
+  handoffRequested              Boolean?  @default(false) @map("handoff_requested")
+  createdAt                     DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  botName                       String?   @default("Tagu") @map("bot_name") @db.VarChar(100)
+  businessName                  String?   @map("business_name") @db.VarChar(255)
+  workingHours                  String?   @map("working_hours")
+  servicesInfo                  String?   @map("services_info")
+  faqs                          String?
+  agendaSettings                Json?     @map("agenda_settings")
+  identityConfig                Json?     @map("identity_config")
+  leadScoringRules              Json?     @map("lead_scoring_rules")
+  objectives                    Json?
+  toolsEnabled                  Json?     @map("tools_enabled")
+  additionalInfo                String?   @map("additional_info")
+  geminiApiKey                  String?   @map("gemini_api_key")
+  menuPdfUrl                    String?   @map("menu_pdf_url")
+  menuPdfName                   String?   @map("menu_pdf_name")
+  menuPdfBase64                 String?   @map("menu_pdf_base64")
+  businessType                  String?   @default("citas") @map("business_type") @db.VarChar(50)
+  deleteMessagesOlderThan12Days Boolean?  @default(false) @map("delete_messages_older_than_12_days")
+  tenant                        Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("agent_configs")
 }

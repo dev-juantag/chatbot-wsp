@@ -20,6 +20,7 @@ type Appointment = {
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [businessType, setBusinessType] = useState("citas");
 
   const formatPhone = (phone: string) => {
     if (!phone) return "";
@@ -35,7 +36,30 @@ export default function AppointmentsPage() {
   };
 
   useEffect(() => {
-    fetchAppointments();
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: userRecord } = await supabase
+          .from("users")
+          .select("tenant_id")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (userRecord?.tenant_id) {
+          const { data: config } = await supabase
+            .from("agent_configs")
+            .select("business_type")
+            .eq("tenant_id", userRecord.tenant_id)
+            .maybeSingle();
+            
+          if (config?.business_type) {
+            setBusinessType(config.business_type);
+          }
+        }
+      }
+      fetchAppointments();
+    };
+    init();
   }, []);
 
   const fetchAppointments = async () => {
@@ -70,8 +94,16 @@ export default function AppointmentsPage() {
     }
   };
 
+  const updateStatus = async (id: string, newStatus: string) => {
+    await supabase
+      .from("appointments")
+      .update({ status: newStatus })
+      .eq("id", id);
+    fetchAppointments();
+  };
+
   return (
-    <div className="p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+    <div className="p-4 md:p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <style dangerouslySetInnerHTML={{__html: `
         /* React Calendar Custom Overrides */
         .react-calendar {
@@ -204,7 +236,7 @@ export default function AppointmentsPage() {
         <div className="lg:col-span-2 flex flex-col gap-4">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
             <CalendarIcon size={24} className="text-blue-500" />
-            Agenda para el {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {businessType === 'pedidos' ? 'Pedidos para el ' : 'Agenda para el '} {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
           </h2>
           
           {dayAppointments.length === 0 ? (
@@ -213,7 +245,7 @@ export default function AppointmentsPage() {
                 <CalendarIcon className="text-gray-400" size={32} />
               </div>
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Día libre</h3>
-              <p className="text-gray-500 dark:text-gray-400 max-w-sm">No hay ninguna cita programada para esta fecha.</p>
+              <p className="text-gray-500 dark:text-gray-400 max-w-sm">No hay {businessType === 'pedidos' ? 'ningún pedido programado' : 'ninguna cita programada'} para esta fecha.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -232,6 +264,15 @@ export default function AppointmentsPage() {
                       {app.contact?.name && app.contact.name !== 'Cliente' && (
                         <p className="text-sm text-gray-500 mt-0.5 ml-6">{formatPhone(app.contact.phone)}</p>
                       )}
+                      
+                      <div className="flex items-center gap-2 mt-3 ml-6">
+                        <button onClick={() => updateStatus(app.id, 'completada')} className="p-1.5 rounded-md hover:bg-emerald-100 text-emerald-600 dark:hover:bg-emerald-900/50 transition-colors" title="Marcar completada">
+                          <CheckCircle size={18} />
+                        </button>
+                        <button onClick={() => updateStatus(app.id, 'cancelada')} className="p-1.5 rounded-md hover:bg-red-100 text-red-600 dark:hover:bg-red-900/50 transition-colors" title="Marcar cancelada">
+                          <XCircle size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   

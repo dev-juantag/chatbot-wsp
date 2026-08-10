@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     }).catch(() => null);
 
     if (!res || !res.ok) {
-      res = await fetch("http://localhost:3001/api/superadmin/tenants", {
+      res = await fetch("https://api.chatbot.techtag.dev/api/superadmin/tenants", {
         headers: { "Authorization": authHeader }
       }).catch(() => null);
     }
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     }).catch(() => null);
 
     if (!res || !res.ok) {
-      res = await fetch("http://localhost:3001/api/superadmin/tenants", {
+      res = await fetch("https://api.chatbot.techtag.dev/api/superadmin/tenants", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

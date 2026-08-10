@@ -5,7 +5,7 @@ import UnifiedSettingsForm from "./components/UnifiedSettingsForm";
 
 export default function SettingsPage() {
   return (
-    <div className="p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+    <div className="p-4 md:p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="max-w-5xl mx-auto">
         {/* Cabecera */}
         <div className="flex items-center justify-between mb-8">
@@ -21,7 +21,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Panel Único de Configuración */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 min-h-[500px]">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-8 min-h-[500px]">
           <UnifiedSettingsForm />
         </div>
       </div>

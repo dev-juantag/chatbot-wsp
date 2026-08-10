@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Users, UserPlus, ToggleLeft, ToggleRight, Loader2, KeyRound } from "lucide-react";
+import { Users, UserPlus, ToggleLeft, ToggleRight, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -32,6 +32,7 @@ export default function ManageUsersPage() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = async () => {
@@ -155,7 +156,7 @@ export default function ManageUsersPage() {
   }
 
   return (
-    <div className="p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+    <div className="p-4 md:p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
       {/* Cabecera */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
@@ -193,16 +194,16 @@ export default function ManageUsersPage() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Correo Electrónico</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID de Autenticación</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rol</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Correo Electrónico</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">ID de Autenticación</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Rol</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Estado</th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Acciones</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {users.map((u) => (
-                  <tr key={u.id}>
+                  <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">{u.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono">{u.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -256,21 +257,29 @@ export default function ManageUsersPage() {
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-2.5 text-sm text-gray-900 dark:text-white"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 flex items-center gap-1.5">
-                  <KeyRound size={14} />
-                  Contraseña Inicial del Empleado
-                </label>
-                <input 
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-2.5 text-sm text-gray-900 dark:text-white"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
+                    Contraseña Inicial del Empleado
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 p-2.5 pr-10 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button 
                   type="button" 

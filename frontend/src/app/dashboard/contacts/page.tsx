@@ -75,7 +75,7 @@ export default function ContactsPage() {
   );
 
   return (
-    <div className="p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+    <div className="p-4 md:p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="max-w-5xl mx-auto space-y-6">
         
         {/* Cabecera y Buscador */}
@@ -106,16 +106,16 @@ export default function ContactsPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-150 dark:border-gray-700">
-                  <th className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wider">Nombre del Cliente</th>
-                  <th className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wider">Teléfono / WhatsApp</th>
-                  <th className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wider">Etapa (Pipeline)</th>
-                  <th className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wider text-right">Fecha de Registro</th>
+                  <th className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wider whitespace-nowrap">Nombre del Cliente</th>
+                  <th className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wider whitespace-nowrap">Teléfono / WhatsApp</th>
+                  <th className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wider whitespace-nowrap">Etapa (Pipeline)</th>
+                  <th className="px-6 py-4 font-bold text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wider text-right whitespace-nowrap">Fecha de Registro</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                 {filteredContacts.map(contact => (
                   <tr key={contact.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shadow-sm shrink-0 ${getAvatarBg(contact.name)}`}>
                           {getInitials(contact.name)}
@@ -125,18 +125,18 @@ export default function ContactsPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 font-medium">
                         <Phone size={14} className="text-gray-400" />
                         <span>{formatPhone(contact.phone)}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/50 dark:text-blue-300 capitalize">
                         {contact.pipeline_stage.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right text-gray-500 dark:text-gray-400 text-xs font-semibold">
+                    <td className="px-6 py-4 text-right text-gray-500 dark:text-gray-400 text-xs font-semibold whitespace-nowrap">
                       {new Date(contact.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
                   </tr>

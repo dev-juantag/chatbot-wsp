@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter, usePathname } from "next/navigation";
 import { 
   MessageSquare, Calendar, Settings, LogOut, Users, 
-  Smartphone, Phone, ShieldAlert, Bot 
+  Smartphone, Phone, ShieldAlert, Bot, Menu, X 
 } from "lucide-react";
 import Link from "next/link";
 
@@ -24,19 +24,23 @@ export default function DashboardLayout({
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState("agent");
   const [businessName, setBusinessName] = useState("Negocio");
+  const [businessType, setBusinessType] = useState("citas");
   const [showAppointments, setShowAppointments] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [unreadHandoffCount, setUnreadHandoffCount] = useState(0);
+  const [licenseInactive, setLicenseInactive] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     const checkUserAndConfig = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push("/login");
         return;
       }
 
-      // Leer el rol desde la tabla users (más confiable que user_metadata)
       const { data: userRecord } = await supabase
         .from("users")
         .select("role, tenant_id")
@@ -46,11 +50,25 @@ export default function DashboardLayout({
       const userRole = userRecord?.role || session.user?.user_metadata?.role || "agent";
       setRole(userRole);
 
-      // Buscar config del tenant correcto — evitar .single() que falla si hay 0 o varios registros
+      // Verificar si la licencia del negocio está activa (no aplica a superadmin)
+      if (userRecord?.tenant_id && userRole !== 'superadmin') {
+        const { data: tenantData } = await supabase
+          .from('tenants')
+          .select('is_active')
+          .eq('id', userRecord.tenant_id)
+          .maybeSingle();
+
+        if (tenantData && tenantData.is_active === false) {
+          setLicenseInactive(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       if (userRecord?.tenant_id) {
         const { data: config } = await supabase
           .from("agent_configs")
-          .select("objectives, business_name")
+          .select("objectives, business_name, business_type")
           .eq("tenant_id", userRecord.tenant_id)
           .maybeSingle();
 
@@ -61,10 +79,40 @@ export default function DashboardLayout({
           if (config.business_name) {
             setBusinessName(config.business_name);
           }
+          if (config.business_type) {
+            setBusinessType(config.business_type);
+          }
         }
-      }
 
-      setLoading(false);
+        // Fetch handoff count
+        const fetchHandoffs = async () => {
+          const { count } = await supabase
+            .from("contacts")
+            .select('*', { count: 'exact', head: true })
+            .eq('tenant_id', userRecord.tenant_id)
+            .eq('pipeline_stage', 'handoff');
+          setUnreadHandoffCount(count || 0);
+        };
+        fetchHandoffs();
+
+        // Suscribirse a cambios en contacts para actualizar el handoff en tiempo real
+        const contactsChannel = supabase
+          .channel('public:contacts:handoff')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'contacts', filter: `tenant_id=eq.${userRecord.tenant_id}` },
+            (payload) => {
+              fetchHandoffs();
+            }
+          )
+          .subscribe();
+        }
+
+      } catch (err) {
+        console.error("Error cargando configuración:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     checkUserAndConfig();
   }, [router]);
@@ -76,22 +124,75 @@ export default function DashboardLayout({
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
 
+  // Pantalla de licencia suspendida
+  if (licenseInactive) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
+        <div className="bg-gray-900 border border-red-500/30 rounded-2xl shadow-2xl shadow-red-500/10 p-10 max-w-md w-full text-center flex flex-col items-center gap-6">
+          <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center border-2 border-red-500/30">
+            <ShieldAlert className="w-10 h-10 text-red-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-2">Licencia Suspendida</h1>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              El acceso a esta plataforma ha sido <span className="text-red-400 font-semibold">suspendido temporalmente</span>.
+              Por favor, comunicate con el administrador del sistema para reactivar tu licencia.
+            </p>
+          </div>
+          <div className="w-full border-t border-gray-800 pt-4">
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors text-sm"
+            >
+              <LogOut size={16} />
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const navigation = [
-    { name: "Chats", href: "/dashboard", icon: MessageSquare, show: true },
-    { name: "Citas", href: "/dashboard/appointments", icon: Calendar, show: showAppointments },
+    { name: "Chats", href: "/dashboard", icon: MessageSquare, show: true, badge: unreadHandoffCount > 0 },
+    { name: businessType === 'pedidos' ? "Pedidos" : "Citas", href: "/dashboard/appointments", icon: Calendar, show: showAppointments },
     { name: "Contactos", href: "/dashboard/contacts", icon: Users, show: role !== 'agent' && role !== 'asesor' },
     { name: "Gestionar Asesores", href: "/dashboard/users", icon: Users, show: role === 'admin' || role === 'superadmin' },
     { name: "Conexión WhatsApp", href: "/dashboard/whatsapp", icon: WhatsAppIcon, show: role !== 'agent' && role !== 'asesor' },
   ].filter(nav => nav.show);
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar Minimalista & Profesional */}
-      <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-150 dark:border-gray-700 flex flex-col justify-between">
+    <div className="flex flex-col md:flex-row h-[100dvh] bg-gray-50 dark:bg-gray-900">
+      
+      {/* Mobile Header */}
+      <div className="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between p-4 z-20 shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-lg flex items-center justify-center text-white">
+            <Bot size={18} />
+          </div>
+          <h2 className="text-sm font-extrabold text-gray-800 dark:text-white truncate">
+            {businessName}
+          </h2>
+        </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="text-gray-600 dark:text-gray-300 p-1"
+        >
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      {/* Sidebar (Desktop) / Drawer (Mobile) */}
+      <div className={`
+        fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 border-r border-gray-150 dark:border-gray-700 
+        flex flex-col justify-between transform transition-transform duration-300 ease-in-out
+        md:relative md:translate-x-0
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
         
         <div>
-          {/* Header con el nombre dinámico de la Empresa */}
-          <div className="p-5 flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-900/10">
+          {/* Header con el nombre dinámico de la Empresa (Oculto en móvil, mostrado en Desktop) */}
+          <div className="hidden md:flex p-5 items-center gap-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-900/10">
             <div className="w-9 h-9 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-500/15">
               <Bot size={20} className="animate-pulse" />
             </div>
@@ -102,15 +203,23 @@ export default function DashboardLayout({
               </h2>
             </div>
           </div>
+
+          <div className="md:hidden p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+            <span className="font-bold text-gray-800 dark:text-white">Menú Principal</span>
+            <button onClick={() => setIsMobileMenuOpen(false)}>
+              <X size={20} className="text-gray-500" />
+            </button>
+          </div>
           
           {/* Menú de Navegación */}
-          <nav className="px-3 space-y-1 mt-5">
+          <nav className="px-3 space-y-1 mt-5 flex-1 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
                       ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
@@ -118,7 +227,10 @@ export default function DashboardLayout({
                   }`}
                 >
                   <item.icon className={isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"} size={18} />
-                  <span>{item.name}</span>
+                  <span className="flex-1">{item.name}</span>
+                  {item.badge && (
+                    <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>
+                  )}
                 </Link>
               );
             })}
@@ -128,9 +240,9 @@ export default function DashboardLayout({
         {/* Sección Inferior del Sidebar */}
         <div className="p-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
           
-          {/* Simulador Chatbot (Abajo, justo encima de Administración y Configuración) */}
           <Link
             href="/dashboard/lab"
+            onClick={() => setIsMobileMenuOpen(false)}
             className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
               pathname === "/dashboard/lab"
                 ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
@@ -141,10 +253,10 @@ export default function DashboardLayout({
             <span>Simulador Chatbot</span>
           </Link>
 
-          {/* Administración (Superadmin) */}
           {role === 'superadmin' && (
             <Link
               href="/dashboard/superadmin"
+              onClick={() => setIsMobileMenuOpen(false)}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 pathname === "/dashboard/superadmin"
                   ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
@@ -156,10 +268,10 @@ export default function DashboardLayout({
             </Link>
           )}
 
-          {/* Configuración (Superadmin & Admin) */}
           {(role === 'admin' || role === 'superadmin') && (
             <Link
               href="/dashboard/settings"
+              onClick={() => setIsMobileMenuOpen(false)}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 pathname === "/dashboard/settings"
                   ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
@@ -171,14 +283,12 @@ export default function DashboardLayout({
             </Link>
           )}
 
-          {/* Pie de página minimalista */}
           <div className="text-center text-[9px] text-gray-400 dark:text-gray-500 pt-1 leading-normal">
-            © 2026 Juan Taguado | Reservados todos los derechos
+            © 2026 Juan Taguado
           </div>
 
           <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
 
-          {/* Cerrar Sesión */}
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 w-full px-4 py-2.5 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all text-sm font-medium"
@@ -187,13 +297,21 @@ export default function DashboardLayout({
             <span>Cerrar Sesión</span>
           </button>
         </div>
-
       </div>
 
+      {/* Backdrop overlay para cerrar el menú en móvil */}
+      {isMobileMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-20"
+          onClick={() => setIsMobileMenuOpen(false)}
+        ></div>
+      )}
+
       {/* Main content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {children}
       </div>
     </div>
   );
 }
+

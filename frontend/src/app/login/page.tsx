@@ -87,7 +87,9 @@ export default function LoginPage() {
         setError("Tu cuenta ha sido desactivada o se encuentra restringida. Por favor, contacta al administrador del negocio.");
         setLoading(false);
       } else {
-        router.push("/dashboard");
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 500);
       }
     }
   };
@@ -102,7 +104,7 @@ export default function LoginPage() {
     setSuccessMsg(null);
 
     try {
-      const res = await fetch("http://localhost:3001/api/auth/forgot-password", {
+      const res = await fetch("/api/backend/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
@@ -134,7 +136,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const res = await fetch("http://localhost:3001/api/auth/verify-code", {
+      const res = await fetch("/api/backend/auth/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), code: code.trim() }),
@@ -168,7 +170,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const res = await fetch("http://localhost:3001/api/auth/reset-password", {
+      const res = await fetch("/api/backend/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

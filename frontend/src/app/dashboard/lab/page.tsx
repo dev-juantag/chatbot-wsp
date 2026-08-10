@@ -60,7 +60,7 @@ export default function LabPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3001/api/lab/chat', {
+      const res = await fetch('/api/backend/lab/chat', {
         method: 'POST',
         headers: await getAuthHeaders(),
         body: JSON.stringify({ message: userMsg, history: messages })

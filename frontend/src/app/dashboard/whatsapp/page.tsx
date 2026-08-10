@@ -45,12 +45,13 @@ export default function WhatsAppConnectionPage() {
       }
 
       // 3. Consultar backend Express / OpenWA para obtener el estado real
-      const res = await fetch('http://localhost:3001/api/whatsapp/status', {
+      const res = await fetch('/api/backend/whatsapp/status', {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
 
       if (res.ok) {
         const data = await res.json();
+        // 'starting' significa que el motor arrancó en segundo plano, mostramos pantalla de espera QR
         setStatus(data.status || 'disconnected');
         setSessionData(data);
       } else {
@@ -59,6 +60,12 @@ export default function WhatsAppConnectionPage() {
     } catch (e: any) {
       setStatus('disconnected');
     }
+  };
+
+  const handleRetry = async () => {
+    setStatus('loading');
+    setSessionData(null);
+    await checkStatus();
   };
 
   useEffect(() => {
@@ -75,7 +82,7 @@ export default function WhatsAppConnectionPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch("http://localhost:3001/api/whatsapp/disconnect", {
+      const res = await fetch("/api/backend/whatsapp/disconnect", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${session.access_token}`
@@ -98,7 +105,7 @@ export default function WhatsAppConnectionPage() {
   };
 
   return (
-    <div className="p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+    <div className="p-4 md:p-8 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <QrCode className="text-green-500" size={28} />
@@ -155,40 +162,42 @@ export default function WhatsAppConnectionPage() {
               </button>
             </div>
           </div>
-        ) : sessionData?.qrCode || status === "qr_ready" ? (
+        ) : (status === 'starting' || (!sessionData?.qrCode && status === 'qr_ready')) ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gray-50 dark:bg-gray-900/50">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 max-w-md w-full flex flex-col items-center">
+              <div className="w-64 h-64 bg-gray-100 dark:bg-gray-700 rounded-2xl flex flex-col items-center justify-center mb-6 border-2 border-dashed border-emerald-300 dark:border-emerald-700">
+                <RefreshCw className="w-10 h-10 text-emerald-500 animate-spin mb-2" />
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Iniciando motor WhatsApp...</span>
+                <span className="text-xs text-gray-400 mt-1">El QR aparecerá en unos segundos</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-4 py-2 rounded-full border border-emerald-200 dark:border-emerald-900">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                Generando código QR...
+              </div>
+            </div>
+          </div>
+        ) : sessionData?.qrCode ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-gray-900/50 w-full text-center">
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 max-w-md w-full flex flex-col items-center">
-              
               <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full flex items-center justify-center mb-3">
                 <QrCode size={24} />
               </div>
-              
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Escanea el Código QR</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
                 Abre WhatsApp en tu teléfono → Dispositivos vinculados → Vincular un dispositivo y apunta con tu cámara a la pantalla.
               </p>
-
-              {sessionData?.qrCode ? (
-                <div className="p-4 bg-white rounded-2xl border-4 border-emerald-500 shadow-md mb-6 relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src={sessionData.qrCode} 
-                    alt="Código QR de WhatsApp" 
-                    className="w-64 h-64 object-contain rounded-lg"
-                  />
-                </div>
-              ) : (
-                <div className="w-64 h-64 bg-gray-100 dark:bg-gray-700 rounded-2xl flex flex-col items-center justify-center mb-6 border-2 border-dashed border-gray-300 dark:border-gray-600">
-                  <RefreshCw className="w-10 h-10 text-emerald-500 animate-spin mb-2" />
-                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Generando código QR...</span>
-                </div>
-              )}
-
+              <div className="p-4 bg-white rounded-2xl border-4 border-emerald-500 shadow-md mb-6 relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={sessionData.qrCode} 
+                  alt="Código QR de WhatsApp" 
+                  className="w-64 h-64 object-contain rounded-lg"
+                />
+              </div>
               <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-4 py-2 rounded-full border border-emerald-200 dark:border-emerald-900">
                 <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
                 Esperando escaneo en vivo...
               </div>
-
             </div>
           </div>
         ) : status === 'disconnected' ? (
@@ -198,14 +207,14 @@ export default function WhatsAppConnectionPage() {
             </div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">WhatsApp no conectado</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-6">
-              Para vincular WhatsApp, asegúrate de que el servidor backend esté corriendo y luego haz clic en reintentar.
+              Haz clic en el botón para iniciar el motor de WhatsApp y obtener tu código QR de vinculación.
             </p>
             <button
-              onClick={checkStatus}
+              onClick={handleRetry}
               className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-colors"
             >
               <RefreshCw size={16} />
-              Reintentar conexión
+              Generar código QR
             </button>
           </div>
         ) : (
